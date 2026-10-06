@@ -53,9 +53,9 @@
     <div class="row"><span class="label">حالت</span><div class="row" id="modeRow"></div></div>
     <button id="play">شروع مبارزه ▶</button>
     <div class="help">
-      بازیکن ۱: <kbd>←</kbd><kbd>→</kbd> حرکت &nbsp; <kbd>↑</kbd> پرش (دوبار = پرش دوم) &nbsp; <kbd>Z</kbd> ضربه &nbsp; <kbd>X</kbd> ضربه‌ی سنگین (Signature) &nbsp; <kbd>C</kbd> جاخالی<br/>
-      بازیکن ۲ (دونفره روی یک کیبورد): <kbd>A</kbd><kbd>D</kbd> &nbsp; <kbd>W</kbd> پرش &nbsp; <kbd>J</kbd> ضربه &nbsp; <kbd>K</kbd> سنگین &nbsp; <kbd>L</kbd> جاخالی<br/>
-      هدف: حریف رو با ضربه از صحنه بیرون بنداز. درصد بالاتر = پرتاب بیشتر. هر نفر ۳ جون.
+      بازیکن ۱: <kbd>←</kbd><kbd>→</kbd> حرکت &nbsp; <kbd>↑</kbd> پرش (دوبار = پرش دوم) &nbsp; <kbd>Z</kbd> ضربه / برداشتن سلاح &nbsp; <kbd>X</kbd> سیگنچر &nbsp; <kbd>C</kbd> جاخالی &nbsp; <kbd>V</kbd> پرتاب سلاح<br/>
+      بازیکن ۲: <kbd>A</kbd><kbd>D</kbd> &nbsp; <kbd>W</kbd> پرش &nbsp; <kbd>J</kbd> ضربه / برداشتن &nbsp; <kbd>K</kbd> سیگنچر &nbsp; <kbd>L</kbd> جاخالی &nbsp; <kbd>I</kbd> پرتاب<br/>
+      مثل Brawlhalla: بدون سلاح شروع می‌کنی. سلاح از آسمون می‌افته — برو روش و <kbd>Z</kbd> بزن تا برداری (هر لجند یکی از دو سلاح خودش رو می‌گیره). سلاحت رو می‌تونی پرتاب کنی. با از دست دادن جون، سلاح می‌افته. هر نفر ۳ جون.
     </div>
   </div>
 
@@ -82,18 +82,31 @@ const DIFFS = [
   {id:'god',       name:'گاد',        react:0.0,  aggro:1.0,  miss:0.0,  speed:1.3,  xp:220, cheats:true},
 ];
 
-// لجندها — سبک Brawlhalla: هر کدام سلاح و «سیگنچر» خودش را دارد
+// سلاح‌ها — هر کدام برد، قدرت، زاویه پرتاب و سرعت ضربه‌ی خودش را دارد
+const WEAPONS = {
+  unarmed:   {name:'بدون سلاح', range:46, pow:0.7,  angle:0.5,  cd:16},
+  sword:     {name:'شمشیر',     range:70, pow:1.0,  angle:0.35, cd:24},
+  katana:    {name:'کاتانا',    range:66, pow:0.9,  angle:0.4,  cd:18},
+  hammer:    {name:'چکش',       range:76, pow:1.45, angle:0.8,  cd:38},
+  gauntlets: {name:'دستکش رزمی',range:56, pow:0.85, angle:0.55, cd:13},
+  spear:     {name:'نیزه',      range:98, pow:1.0,  angle:0.3,  cd:28},
+  axe:       {name:'تبر',       range:72, pow:1.3,  angle:1.0,  cd:32},
+  lance:     {name:'لنس',       range:92, pow:1.15, angle:0.25, cd:30},
+  scythe:    {name:'داس',       range:82, pow:1.1,  angle:0.65, cd:28},
+};
+
+// لجندها — سبک Brawlhalla: هر لجند دو سلاح دارد (weapons)، با برداشتن دراپ یکی از آن دو را می‌گیرد: هر کدام سلاح و «سیگنچر» خودش را دارد
 // weapon: sword | hammer | katana | spear | gauntlets | axe | lance | scythe
 // sig (ضربه سنگین): dash (شارژ جلو) | slam (کوبش از بالا) | blink (تلپورت کوتاه) | spin (چرخش)
 const CHARS = [
-  {id:'aren',  name:'آرِن',   cls:'شوالیه',    weapon:'sword',     sig:'dash',  unlock:1,  spd:1,    pow:1,    wt:1,    skin:'#f1c9a5', hair:'#6b3e1e', suit:'#3d6fd6', suit2:'#d9e4ff', hat:'helm'},
-  {id:'zara',  name:'زارا',   cls:'نینجا',      weapon:'katana',    sig:'blink', unlock:1,  spd:1.2,  pow:0.9,  wt:0.85, skin:'#e8b58e', hair:'#1c1c2e', suit:'#1f2240', suit2:'#c23b5b', hat:'mask'},
-  {id:'brun',  name:'برون',   cls:'وایکینگ',    weapon:'hammer',    sig:'slam',  unlock:1,  spd:0.85, pow:1.3,  wt:1.3,  skin:'#f0c4a0', hair:'#d9822b', suit:'#5a3b26', suit2:'#9a9fb0', hat:'horns'},
-  {id:'kai',   name:'کای',    cls:'راهب',       weapon:'gauntlets', sig:'spin',  unlock:3,  spd:1.1,  pow:1,    wt:0.95, skin:'#d9a57a', hair:'#222',    suit:'#e07b1f', suit2:'#ffd27a', hat:'bald'},
-  {id:'selin', name:'سِلین',  cls:'نگهبان جنگل', weapon:'spear',     sig:'dash',  unlock:5,  spd:1.05, pow:1.05, wt:0.95, skin:'#f5d6c0', hair:'#3fae5a', suit:'#2d7a4f', suit2:'#b8f0c6', hat:'leaf'},
-  {id:'ragna', name:'راگنا',  cls:'جنگجوی رعد',  weapon:'axe',       sig:'slam',  unlock:8,  spd:0.95, pow:1.2,  wt:1.15, skin:'#e9bfa0', hair:'#f2f2f2', suit:'#5b2a86', suit2:'#ffd400', hat:'crown'},
-  {id:'orion', name:'اوریون', cls:'شوالیه فضایی', weapon:'lance',     sig:'dash',  unlock:12, spd:1.1,  pow:1.1,  wt:1,    skin:'#9fd9ff', hair:'#9fd9ff', suit:'#16233d', suit2:'#3ee0ff', hat:'visor'},
-  {id:'nyx',   name:'نیکس',   cls:'سایه',       weapon:'scythe',    sig:'blink', unlock:18, spd:1.2,  pow:1.15, wt:0.95, skin:'#cdb3ff', hair:'#2a1550', suit:'#2a1550', suit2:'#a855f7', hat:'hood'},
+  {id:'aren',  name:'آرِن',   cls:'شوالیه',    weapons:['sword','lance'],      sig:'dash',  unlock:1,  spd:1,    pow:1,    wt:1,    skin:'#f1c9a5', hair:'#6b3e1e', suit:'#3d6fd6', suit2:'#d9e4ff', hat:'helm'},
+  {id:'zara',  name:'زارا',   cls:'نینجا',      weapons:['katana','gauntlets'], sig:'blink', unlock:1,  spd:1.2,  pow:0.9,  wt:0.85, skin:'#e8b58e', hair:'#1c1c2e', suit:'#1f2240', suit2:'#c23b5b', hat:'mask'},
+  {id:'brun',  name:'برون',   cls:'وایکینگ',    weapons:['hammer','axe'],       sig:'slam',  unlock:1,  spd:0.85, pow:1.3,  wt:1.3,  skin:'#f0c4a0', hair:'#d9822b', suit:'#5a3b26', suit2:'#9a9fb0', hat:'horns'},
+  {id:'kai',   name:'کای',    cls:'راهب',       weapons:['gauntlets','spear'],  sig:'spin',  unlock:3,  spd:1.1,  pow:1,    wt:0.95, skin:'#d9a57a', hair:'#222',    suit:'#e07b1f', suit2:'#ffd27a', hat:'bald'},
+  {id:'selin', name:'سِلین',  cls:'نگهبان جنگل', weapons:['spear','katana'],     sig:'dash',  unlock:5,  spd:1.05, pow:1.05, wt:0.95, skin:'#f5d6c0', hair:'#3fae5a', suit:'#2d7a4f', suit2:'#b8f0c6', hat:'leaf'},
+  {id:'ragna', name:'راگنا',  cls:'جنگجوی رعد',  weapons:['axe','hammer'],       sig:'slam',  unlock:8,  spd:0.95, pow:1.2,  wt:1.15, skin:'#e9bfa0', hair:'#f2f2f2', suit:'#5b2a86', suit2:'#ffd400', hat:'crown'},
+  {id:'orion', name:'اوریون', cls:'شوالیه فضایی', weapons:['lance','sword'],      sig:'dash',  unlock:12, spd:1.1,  pow:1.1,  wt:1,    skin:'#9fd9ff', hair:'#9fd9ff', suit:'#16233d', suit2:'#3ee0ff', hat:'visor'},
+  {id:'nyx',   name:'نیکس',   cls:'سایه',       weapons:['scythe','spear'],     sig:'blink', unlock:18, spd:1.2,  pow:1.15, wt:0.95, skin:'#cdb3ff', hair:'#2a1550', suit:'#2a1550', suit2:'#a855f7', hat:'hood'},
 ];
 
 // مپ‌ها — پلتفرم‌های شناور، سبک Brawlhalla
@@ -118,7 +131,7 @@ function saveProfile(){ localStorage.setItem('sl_profile', JSON.stringify(profil
 // ------------------------------------------------------------------
 // در فضای 0..40 عرض و 0..60 ارتفاع، رو به +x
 function drawLegend(g, c, o){
-  const {t=0, attacking=false, heavy=false, running=false, facing=1, air=false} = o;
+  const {t=0, attacking=false, heavy=false, running=false, facing=1, air=false, weapon=c.weapons[0]} = o;
   g.save(); g.translate(20,0);
   const swing = attacking ? Math.sin(Math.min(1,o.atkT||0)*Math.PI) : 0;   // 0..1..0
   const bob = running ? Math.sin(t*0.5)*1.5 : (air?0:Math.sin(t*0.1)*0.6);
@@ -156,7 +169,7 @@ function drawLegend(g, c, o){
   g.save(); g.translate(7,24+bob); g.rotate(ang);
   g.strokeStyle=c.skin; g.lineWidth=5.5; g.beginPath(); g.moveTo(0,0); g.lineTo(0,13); g.stroke();
   g.translate(0,13);
-  drawWeapon(g, c.weapon, c, heavy&&attacking);
+  drawWeapon(g, weapon, c, heavy&&attacking);
   g.restore();
   g.restore();
 }
@@ -165,6 +178,7 @@ function drawWeapon(g, w, c, glow){
   if(glow){ g.shadowColor=c.suit2; g.shadowBlur=12; }
   g.lineCap='round';
   switch(w){
+    case 'unarmed': g.fillStyle=c.skin; g.beginPath(); g.arc(0,0,4,0,7); g.fill(); break;
     case 'sword': g.strokeStyle='#8a6a2b'; g.lineWidth=4; g.beginPath(); g.moveTo(0,-2); g.lineTo(0,6); g.stroke(); g.strokeStyle='#e9eef7'; g.lineWidth=5; g.beginPath(); g.moveTo(0,0); g.lineTo(0,-26); g.stroke(); g.strokeStyle='#8a6a2b'; g.lineWidth=3; g.beginPath(); g.moveTo(-6,-1); g.lineTo(6,-1); g.stroke(); break;
     case 'katana': g.strokeStyle='#222'; g.lineWidth=3.5; g.beginPath(); g.moveTo(0,0); g.lineTo(0,7); g.stroke(); g.strokeStyle='#dfe8ff'; g.lineWidth=3.5; g.beginPath(); g.moveTo(0,0); g.quadraticCurveTo(3,-15,8,-28); g.stroke(); break;
     case 'hammer': g.strokeStyle='#6b4a2b'; g.lineWidth=4; g.beginPath(); g.moveTo(0,4); g.lineTo(0,-24); g.stroke(); g.fillStyle='#9a9fb0'; rr(g,-10,-34,20,13,3); g.fill(); g.fillStyle='#cfd3dd'; g.fillRect(-10,-34,20,3); break;
@@ -217,15 +231,15 @@ const W=960, H=540, GRAV=0.55, BLAST={l:-140, r:W+140, t:-220, b:H+140};
 const keys = {};
 addEventListener('keydown', e=>{ keys[e.code]=true; if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault(); });
 addEventListener('keyup',   e=>{ keys[e.code]=false; });
-const P1KEYS = {left:'ArrowLeft', right:'ArrowRight', jump:'ArrowUp', atk:'KeyZ', sp:'KeyX', dodge:'KeyC'};
-const P2KEYS = {left:'KeyA', right:'KeyD', jump:'KeyW', atk:'KeyJ', sp:'KeyK', dodge:'KeyL'};
+const P1KEYS = {left:'ArrowLeft', right:'ArrowRight', jump:'ArrowUp', atk:'KeyZ', sp:'KeyX', dodge:'KeyC', thr:'KeyV'};
+const P2KEYS = {left:'KeyA', right:'KeyD', jump:'KeyW', atk:'KeyJ', sp:'KeyK', dodge:'KeyL', thr:'KeyI'};
 
-let state = null, particles = [];
+let state = null, particles = [], pickups = [], thrown = [];
 
 function makeFighter(c, x, facing, ctrl){
   return {c, x, y:200, vx:0, vy:0, w:30, h:60, facing, ctrl, dmg:0, stocks:3, onGround:false, jumps:2,
     atkCd:0, atkT:0, heavy:false, spCd:0, dodge:0, dodgeCd:0, stun:0, inv:0, respawn:0,
-    prevJump:false, prevAtk:false, prevSp:false, prevDodge:false, ai:null, flash:0, cheats:{}};
+    prevJump:false, prevAtk:false, prevSp:false, prevDodge:false, prevThr:false, ai:null, flash:0, cheats:{}, weapon:'unarmed'};
 }
 
 function startGame(){
@@ -238,8 +252,8 @@ function startGame(){
     if(diff.cheats) p2.cheats = {heavy:true, fastRecover:true};
   }
   p1.cheats = diff.cheats ? {tripleJump:true} : {};
-  state = {map, diff, players:[p1,p2], t:0, over:false, shake:0};
-  particles=[];
+  state = {map, diff, players:[p1,p2], t:0, over:false, shake:0, nextDrop:120};
+  particles=[]; pickups=[]; thrown=[];
   $('menu').style.display='none'; $('over').style.display='none'; $('hud').style.display='flex';
   requestAnimationFrame(loop);
 }
@@ -247,7 +261,7 @@ function startGame(){
 function input(p){
   if(p.ai) return aiInput(p);
   const k=p.ctrl;
-  return {left:!!keys[k.left], right:!!keys[k.right], jump:!!keys[k.jump], atk:!!keys[k.atk], sp:!!keys[k.sp], dodge:!!keys[k.dodge]};
+  return {left:!!keys[k.left], right:!!keys[k.right], jump:!!keys[k.jump], atk:!!keys[k.atk], sp:!!keys[k.sp], dodge:!!keys[k.dodge], thr:!!keys[k.thr]};
 }
 
 function aiInput(p){
@@ -257,12 +271,17 @@ function aiInput(p){
     a.think = 0.08 + d.react*Math.random()*0.6;
     const dx = foe.x-p.x, dy = foe.y-p.y, dist=Math.hypot(dx,dy);
     const onStage = p.x>200 && p.x<760;
-    a.wantJump=false; a.wantAtk=false; a.wantSp=false; a.wantDodge=false;
+    a.wantJump=false; a.wantAtk=false; a.wantSp=false; a.wantDodge=false; a.wantThr=false;
+    const pk = nearestPickup(p);
     if(!onStage || p.y>430){
       a.dir = p.x<480?1:-1; a.wantJump = true;
       if(d.aggro>0.6 && p.c.sig==='blink') a.wantSp=true;
     } else if(Math.random() < d.miss){
       a.dir = Math.random()<0.5?-1:1;
+    } else if(p.weapon==='unarmed' && pk && dist>100 && Math.random() < 0.5+d.aggro*0.5){
+      // رفتن سراغ سلاح
+      a.dir = Math.sign(pk.x-p.x); if(pk.y < p.y-30) a.wantJump=true;
+      if(Math.abs(pk.x-p.x)<36 && Math.abs(pk.y-p.y)<50) a.wantAtk=true;
     } else {
       const aggressive = Math.random() < d.aggro;
       a.dir = aggressive ? Math.sign(dx) : (dist<90 ? -Math.sign(dx) : Math.sign(dx)*0.3);
@@ -270,18 +289,46 @@ function aiInput(p){
       if(dist < 75 && aggressive) a.wantAtk = true;
       if(dist < 170 && dist > 80 && Math.random() < d.aggro*0.5) a.wantSp = true;
       if(foe.atkCd>0 && dist<80 && Math.random() < (1-d.miss)*0.7) a.wantDodge = true;
+      if(p.weapon!=='unarmed' && dist>180 && dist<420 && Math.abs(dy)<60 && Math.random() < d.aggro*0.25) a.wantThr = true;
     }
   }
-  return {left:a.dir<0, right:a.dir>0, jump:a.wantJump && !p.prevJump, atk:a.wantAtk, sp:a.wantSp, dodge:a.wantDodge};
+  return {left:a.dir<0, right:a.dir>0, jump:a.wantJump && !p.prevJump, atk:a.wantAtk, sp:a.wantSp, dodge:a.wantDodge, thr:a.wantThr};
+}
+
+function nearestPickup(p){
+  let best=null, bd=1e9;
+  for(const k of pickups){ if(!k.landed) continue; const d=Math.hypot(k.x-p.x,k.y-p.y); if(d<bd){bd=d;best=k;} }
+  return best;
 }
 
 function spawnParticles(x,y,color,n,power,shape){
   for(let i=0;i<n;i++) particles.push({x,y,vx:(Math.random()-0.5)*power,vy:(Math.random()-0.8)*power,life:30+Math.random()*20,color,shape});
 }
 
+function spawnDrop(){
+  const map=state.map; const main=map.plats.filter(q=>q.main); const pl=main[Math.floor(Math.random()*main.length)];
+  pickups.push({x: pl.x+20+Math.random()*(pl.w-40), y:-40, vy:0, landed:false, t:0, life:60*12});
+}
+
 function update(){
   const {players, map} = state; state.t++;
   if(state.shake>0) state.shake*=0.85;
+
+  // دراپ سلاح: مثل Brawlhalla هر چند ثانیه یکی، حداکثر ۲ تا روی زمین
+  if(--state.nextDrop<=0){ if(pickups.length<2) spawnDrop(); state.nextDrop = 60*(4+Math.random()*3); }
+  pickups.forEach(k=>{ k.t++; if(!k.landed){ k.vy=Math.min(k.vy+0.25,5); k.y+=k.vy;
+      for(const pl of map.plats){ if(k.x>pl.x && k.x<pl.x+pl.w && k.y+10>=pl.y && k.y+10<=pl.y+12){ k.y=pl.y-10; k.landed=true; spawnParticles(k.x,k.y,'#ffe08a',10,4,'spark'); } }
+      if(k.y>H+50) k.life=0; } else k.life--; });
+  pickups = pickups.filter(k=>k.life>0);
+
+  // سلاح‌های پرتاب‌شده
+  thrown.forEach(w=>{ w.x+=w.vx; w.y+=w.vy; w.vy+=0.2; w.rot+=0.35; w.life--;
+    const foe = players[1-w.owner];
+    if(foe.respawn===0 && foe.inv<=0 && Math.abs(foe.x-w.x)<28 && Math.abs(foe.y-w.y)<40){
+      applyHit(players[w.owner], foe, 1.2, 0.45, Math.sign(w.vx)); w.life=0; }
+    for(const pl of map.plats){ if(w.vy>0 && w.x>pl.x && w.x<pl.x+pl.w && w.y>=pl.y && w.y<=pl.y+10){ w.life=0; pickups.push({x:w.x,y:pl.y-10,vy:0,landed:true,t:0,life:60*8}); } } // روی زمین می‌ماند تا دوباره برداشته شود
+  });
+  thrown = thrown.filter(w=>w.life>0);
 
   players.forEach((p,idx)=>{
     const foe = players[1-idx];
@@ -293,7 +340,7 @@ function update(){
     if(p.atkCd>0)p.atkCd--; if(p.spCd>0)p.spCd--; if(p.dodgeCd>0)p.dodgeCd--; if(p.inv>0)p.inv--; if(p.flash>0)p.flash--;
     if(p.stun>0) p.stun--;
     if(p.dodge>0) p.dodge--;
-    if(p.atkT>0) p.atkT -= p.heavy? 1/22 : 1/14;
+    if(p.atkT>0) p.atkT -= p.heavy? 1/22 : 1/Math.max(10,WEAPONS[p.weapon].cd*0.6);
 
     const canAct = p.stun<=0 && p.dodge<=0;
     if(canAct){
@@ -302,7 +349,16 @@ function update(){
       p.vx = Math.max(-spd, Math.min(spd, p.vx));
       if(!inp.left && !inp.right) p.vx *= p.onGround?0.7:0.92;
       if(inp.jump && !p.prevJump && p.jumps>0){ p.vy = -11.8; p.jumps--; p.onGround=false; spawnParticles(p.x,p.y+p.h/2,'#fff',6,3,'ring'); }
-      if(inp.atk && !p.prevAtk && p.atkCd===0){ p.atkCd=26; p.atkT=1; p.heavy=false; p.flash=8; doHit(p, foe, {range:64, power:1, angle:0.35}); }
+      if(inp.atk && !p.prevAtk && p.atkCd===0){
+        // اول: اگر روی سلاحی هستیم، برش می‌داریم (مثل Brawlhalla با همان دکمه‌ی ضربه)
+        const k = pickups.find(k=>k.landed && Math.abs(k.x-p.x)<38 && Math.abs(k.y-p.y)<55);
+        if(k && p.weapon==='unarmed'){ k.life=0; p.weapon = p.c.weapons[Math.floor(Math.random()*2)]; p.atkCd=14; p.flash=10; spawnParticles(p.x,p.y-20,p.c.suit2,14,5,'spark'); }
+        else { const wp=WEAPONS[p.weapon]; p.atkCd=wp.cd; p.atkT=1; p.heavy=false; p.flash=8; doHit(p, foe, {range:wp.range, power:wp.pow, angle:wp.angle}); }
+      }
+      if(inp.thr && !p.prevThr && p.weapon!=='unarmed' && p.atkCd===0){
+        thrown.push({x:p.x+p.facing*20, y:p.y-10, vx:p.facing*11+p.vx*0.5, vy:-3, rot:0, life:90, owner:idx, kind:p.weapon});
+        p.weapon='unarmed'; p.atkCd=18; p.atkT=1; p.heavy=false;
+      }
       if(inp.sp && !p.prevSp && p.spCd===0){ p.spCd=90; p.atkT=1; p.heavy=true; p.flash=14;
         if(p.c.sig==='dash'){ p.vx = p.facing*15; p.inv=8; doHit(p, foe, {range:90, power:1.35, angle:0.15}); }
         else if(p.c.sig==='slam'){ p.vy = p.onGround? -6 : 14; doHit(p, foe, {range:85, power:1.65, angle:1.1}); state.shake=6; }
@@ -311,7 +367,7 @@ function update(){
       }
       if(inp.dodge && !p.prevDodge && p.dodgeCd===0){ p.dodge=18; p.dodgeCd=60; p.inv=18; }
     } else p.vx *= 0.96;
-    p.prevJump=inp.jump; p.prevAtk=inp.atk; p.prevSp=inp.sp; p.prevDodge=inp.dodge;
+    p.prevJump=inp.jump; p.prevAtk=inp.atk; p.prevSp=inp.sp; p.prevDodge=inp.dodge; p.prevThr=inp.thr;
 
     p.vy += GRAV * p.c.wt; if(p.vy>16) p.vy=16;
     p.x += p.vx; p.y += p.vy;
@@ -328,7 +384,7 @@ function update(){
     if(p.x<BLAST.l || p.x>BLAST.r || p.y>BLAST.b || p.y<BLAST.t){
       p.stocks--; spawnParticles(Math.max(0,Math.min(W,p.x)), Math.max(0,Math.min(H,p.y)), idx===0?'#4af':'#f66', 36, 12, 'star'); state.shake=14;
       if(p.stocks<=0){ endGame(1-idx); return; }
-      p.respawn=60; p.stun=0;
+      p.respawn=60; p.stun=0; p.weapon='unarmed';
     }
   });
 
@@ -342,11 +398,14 @@ function doHit(p, foe, o){
   if(Math.abs(dy) > 64) return;
   if(Math.sign(dx) !== p.facing && Math.abs(dx) > 25) return;
   if(Math.abs(dx) > o.range) return;
-  const pow = o.power * p.c.pow * (p.cheats.heavy?1.25:1);
+  applyHit(p, foe, o.power, o.angle, p.facing);
+}
+function applyHit(p, foe, power, angle, dir){
+  const pow = power * p.c.pow * (p.cheats.heavy?1.25:1);
   foe.dmg = Math.min(300, foe.dmg + Math.round(8*pow));
   const kb = (3 + foe.dmg*0.09) * pow / foe.c.wt;
-  foe.vx = p.facing*Math.cos(o.angle)*kb;
-  foe.vy = -Math.sin(o.angle)*kb - 2;
+  foe.vx = dir*Math.cos(angle)*kb;
+  foe.vy = -Math.sin(angle)*kb - 2;
   foe.stun = Math.min(40, 8 + foe.dmg*0.12);
   foe.inv = 10; foe.flash = 8;
   spawnParticles(foe.x, foe.y, '#fff', 8, 5, 'spark'); spawnParticles(foe.x, foe.y, p.c.suit2, 8, 7, 'spark');
@@ -429,7 +488,7 @@ function drawFighter(p, label, col){
   ctx.translate(p.x, p.y-p.h/2); ctx.scale(p.facing,1);
   if(p.flash>0 && p.stun>0) { ctx.translate((Math.random()-0.5)*4,0); }
   ctx.translate(-20,0);
-  drawLegend(ctx, p.c, {t:state.t, attacking:p.atkT>0, atkT:1-p.atkT, heavy:p.heavy, running:p.onGround&&Math.abs(p.vx)>1, air:!p.onGround});
+  drawLegend(ctx, p.c, {t:state.t, attacking:p.atkT>0, atkT:1-p.atkT, heavy:p.heavy, running:p.onGround&&Math.abs(p.vx)>1, air:!p.onGround, weapon:p.weapon});
   ctx.restore();
   // برچسب
   ctx.fillStyle=col; rr(ctx,p.x-22,p.y-p.h/2-22,44,15,4); ctx.fill();
@@ -447,13 +506,22 @@ function render(){
     else if(q.shape==='ring'){ ctx.strokeStyle=q.color; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(q.x,q.y,(50-q.life)*0.4,0,7); ctx.stroke(); }
     else { ctx.beginPath(); ctx.arc(q.x,q.y,2.5,0,7); ctx.fill(); } });
   ctx.globalAlpha=1;
+  // دراپ‌های سلاح: صندوقچه‌ی درخشان
+  pickups.forEach(k=>{ const bob=k.landed?Math.sin(k.t*0.1)*3:0, blink = k.life<120 && Math.floor(k.t/6)%2===0;
+    if(blink) return;
+    ctx.save(); ctx.translate(k.x,k.y+bob);
+    ctx.shadowColor='#ffe08a'; ctx.shadowBlur=18; ctx.fillStyle='#ffd166'; rr(ctx,-12,-12,24,22,5); ctx.fill(); ctx.shadowBlur=0;
+    ctx.fillStyle='#b8860b'; ctx.fillRect(-12,-3,24,4); ctx.fillStyle='#fff8dc'; ctx.fillRect(-3,-8,6,14);
+    if(!k.landed){ ctx.strokeStyle='rgba(255,255,255,.7)'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(-14,-14); ctx.quadraticCurveTo(0,-34,14,-14); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-14,-14); ctx.lineTo(-10,-12); ctx.moveTo(14,-14); ctx.lineTo(10,-12); ctx.stroke(); } // چتر کوچک
+    ctx.restore(); });
+  thrown.forEach(w=>{ ctx.save(); ctx.translate(w.x,w.y); ctx.rotate(w.rot*Math.sign(w.vx)); ctx.scale(0.9,0.9); drawWeapon(ctx, w.kind, players[w.owner].c, true); ctx.restore(); });
   drawFighter(players[0], 'P1', '#2f7ee6');
   drawFighter(players[1], players[1].ai ? 'CPU' : 'P2', '#e63f3f');
   players.forEach((p,i)=>{ if(p.respawn===0 && (p.y<-10 || p.x<0 || p.x>W)){ const ax=Math.max(20,Math.min(W-20,p.x)), ay=Math.max(20,Math.min(H-20,p.y)); ctx.fillStyle=i===0?'#2f7ee6':'#e63f3f'; ctx.beginPath(); ctx.arc(ax,ay,13,0,7); ctx.fill(); ctx.fillStyle='#fff'; ctx.font='bold 11px sans-serif'; ctx.textAlign='center'; ctx.fillText(i===0?'P1':'P2',ax,ay+4); }});
   ctx.restore();
   players.forEach((p,i)=>{
     const col = p.dmg<50?'#7cff7c':p.dmg<100?'#ffd84a':p.dmg<150?'#ff9a3c':'#ff4d4d';
-    $(i===0?'hud1':'hud2').innerHTML = `<b>${i===0?'P1':(p.ai?'CPU — '+state.diff.name:'P2')} · ${p.c.name} (${p.c.cls})</b><span class="dmg" style="color:${col}">${p.dmg}%</span> &nbsp; ${'●'.repeat(Math.max(0,p.stocks))}${'○'.repeat(3-Math.max(0,p.stocks))}`;
+    $(i===0?'hud1':'hud2').innerHTML = `<b>${i===0?'P1':(p.ai?'CPU — '+state.diff.name:'P2')} · ${p.c.name} (${p.c.cls})</b><span class="dmg" style="color:${col}">${p.dmg}%</span> &nbsp; ${'●'.repeat(Math.max(0,p.stocks))}${'○'.repeat(3-Math.max(0,p.stocks))}<br/><span style="font-size:12px;color:${p.weapon==='unarmed'?'#9aa':'#ffd166'}">⚔ ${WEAPONS[p.weapon].name}</span>`;
   });
 }
 
