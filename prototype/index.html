@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BlockBrawl — نمونه</title>
+<style>
+  :root{--bg:#0f1420;--panel:#1b2233;--accent:#ffcc33;--text:#eef2ff;--muted:#8b95b3;--lock:#3a4258}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:Vazirmatn,Tahoma,system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;min-height:100vh}
+  h1{margin:16px 0 4px;font-size:34px;letter-spacing:1px}
+  h1 span{color:var(--accent)}
+  .sub{color:var(--muted);margin:0 0 14px;font-size:14px}
+  #wrap{position:relative;width:min(960px,100vw);aspect-ratio:16/9}
+  canvas{width:100%;height:100%;display:block;border-radius:14px;background:#000;image-rendering:pixelated}
+  #menu{position:absolute;inset:0;background:rgba(10,14,24,.92);border-radius:14px;padding:20px 26px;overflow:auto;display:flex;flex-direction:column;gap:14px}
+  .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .label{min-width:90px;color:var(--muted);font-size:14px}
+  button{font:inherit;cursor:pointer;border:0;border-radius:10px;padding:8px 14px;background:var(--panel);color:var(--text);transition:.15s}
+  button:hover{filter:brightness(1.2)}
+  button.sel{background:var(--accent);color:#1a1200;font-weight:700}
+  button.lock{background:var(--lock);color:#7a829c;cursor:not-allowed}
+  .char{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 10px;min-width:92px}
+  .char canvas{width:48px;height:60px;border-radius:0;background:transparent}
+  .char small{color:inherit;opacity:.75;font-size:11px}
+  #play{align-self:center;font-size:22px;padding:12px 44px;background:#38c172;color:#031a0c;font-weight:800;margin-top:6px}
+  .help{color:var(--muted);font-size:13px;line-height:1.9}
+  kbd{background:#2a3350;border-radius:5px;padding:1px 7px;font-family:inherit;color:#fff}
+  #hud{position:absolute;top:8px;left:0;right:0;display:none;justify-content:space-between;padding:0 14px;pointer-events:none}
+  .pcard{background:rgba(0,0,0,.55);padding:6px 12px;border-radius:10px;min-width:150px;direction:ltr;text-align:left}
+  .pcard b{display:block;font-size:13px}
+  .pcard .dmg{font-size:26px;font-weight:900}
+  #over{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;gap:10px;background:rgba(10,14,24,.88);border-radius:14px}
+  #over h2{font-size:40px;margin:0}
+  .xp{color:var(--accent);font-size:18px}
+  #profile{font-size:13px;color:var(--muted)}
+  #profile b{color:var(--accent)}
+</style>
+</head>
+<body>
+<h1>Block<span>Brawl</span></h1>
+<p class="sub">نمونه‌ی اولیه — بازی پلتفرمی مبارزه‌ای (سبک Brawlhalla) با حال‌وهوای بلوکی</p>
+
+<div id="wrap">
+  <canvas id="game" width="960" height="540"></canvas>
+
+  <div id="hud">
+    <div class="pcard" id="hud1"></div>
+    <div class="pcard" id="hud2"></div>
+  </div>
+
+  <div id="menu">
+    <div id="profile"></div>
+    <div class="row"><span class="label">سختی</span><div class="row" id="diffRow"></div></div>
+    <div class="row"><span class="label">کاراکتر</span><div class="row" id="charRow"></div></div>
+    <div class="row"><span class="label">مپ</span><div class="row" id="mapRow"></div></div>
+    <div class="row"><span class="label">حالت</span><div class="row" id="modeRow"></div></div>
+    <button id="play">شروع بازی ▶</button>
+    <div class="help">
+      کنترل بازیکن ۱: <kbd>←</kbd><kbd>→</kbd> حرکت &nbsp; <kbd>↑</kbd> پرش (دوبار = پرش دوم) &nbsp; <kbd>Z</kbd> ضربه &nbsp; <kbd>X</kbd> حرکت ویژه &nbsp; <kbd>C</kbd> جاخالی<br/>
+      بازیکن ۲ (دونفره روی یک کیبورد): <kbd>A</kbd><kbd>D</kbd> حرکت &nbsp; <kbd>W</kbd> پرش &nbsp; <kbd>J</kbd> ضربه &nbsp; <kbd>K</kbd> ویژه &nbsp; <kbd>L</kbd> جاخالی<br/>
+      هدف: حریف رو با ضربه از صحنه بیرون بنداز. هر چی درصدش بالاتر بره، بیشتر پرت می‌شه. هر نفر ۳ جون داره. خشونتی در کار نیست — فقط «بونک!» 🙂
+    </div>
+  </div>
+
+  <div id="over">
+    <h2 id="overTitle"></h2>
+    <div class="xp" id="overXp"></div>
+    <div id="overUnlock" class="xp"></div>
+    <button id="again">بازگشت به منو</button>
+  </div>
+</div>
+
+<script>
+// ------------------------------------------------------------------
+// داده‌های بازی
+// ------------------------------------------------------------------
+const DIFFS = [
+  {id:'noob',      name:'نوب',        react:0.65, aggro:0.25, miss:0.55, speed:0.75, xp:10},
+  {id:'easy',      name:'ایزی',       react:0.5,  aggro:0.35, miss:0.4,  speed:0.85, xp:20},
+  {id:'normal',    name:'نرمال',      react:0.35, aggro:0.5,  miss:0.25, speed:1,    xp:35},
+  {id:'hard',      name:'هارد',       react:0.22, aggro:0.65, miss:0.15, speed:1.05, xp:55},
+  {id:'superhard', name:'سوپر هارد',  react:0.15, aggro:0.75, miss:0.08, speed:1.1,  xp:80},
+  {id:'multihard', name:'مولتی هارد', react:0.1,  aggro:0.85, miss:0.04, speed:1.15, xp:110, cheats:true},
+  {id:'impossible',name:'ایمپاسیبل',  react:0.05, aggro:0.95, miss:0.02, speed:1.2,  xp:150, cheats:true},
+  {id:'god',       name:'گاد',        react:0.0,  aggro:1.0,  miss:0.0,  speed:1.3,  xp:220, cheats:true},
+];
+
+// کاراکترها: بلوکی و دوستانه. unlock = لولی که باز می‌شه
+const CHARS = [
+  {id:'steve',  name:'استیو',   body:'#2e9cca', skin:'#e2b48c', head:'#6b4a2b', unlock:1, spd:1,    pow:1,    wt:1,   special:'dash'},
+  {id:'alexa',  name:'الکسا',   body:'#64c25a', skin:'#f0c7a3', head:'#d7742c', unlock:1, spd:1.15, pow:0.9,  wt:0.9, special:'dash'},
+  {id:'golem',  name:'گولم',    body:'#9aa3ad', skin:'#c7ced6', head:'#c7ced6', unlock:1, spd:0.85, pow:1.25, wt:1.3, special:'slam'},
+  {id:'ender',  name:'اندر',    body:'#1a1a2a', skin:'#2a2a44', head:'#1a1a2a', unlock:3, spd:1.25, pow:0.95, wt:0.85,special:'blink', eye:'#c04bff'},
+  {id:'frost',  name:'فراست',   body:'#7fd6ff', skin:'#dff6ff', head:'#dff6ff', unlock:5, spd:1.05, pow:1.05, wt:1,   special:'slam'},
+  {id:'blaze',  name:'بلیز',    body:'#ff8b1f', skin:'#ffd17a', head:'#ffb43a', unlock:8, spd:1.1,  pow:1.15, wt:0.95,special:'dash'},
+  {id:'knight', name:'نایت',    body:'#444a66', skin:'#c9cfe3', head:'#444a66', unlock:12,spd:0.95, pow:1.2,  wt:1.15,special:'slam'},
+  {id:'void',   name:'وُید',    body:'#4b2a8a', skin:'#9f7cff', head:'#2a1550', unlock:18,spd:1.2,  pow:1.2,  wt:1,   special:'blink', eye:'#fff'},
+];
+
+const MAPS = [
+  {id:'plains', name:'دشت', sky:['#7ec8ff','#d9f1ff'], ground:'#5fb24a', dirt:'#7a5230',
+   plats:[{x:230,y:410,w:500,h:30,solid:true},{x:300,y:280,w:140,h:16},{x:520,y:280,w:140,h:16},{x:410,y:170,w:140,h:16}]},
+  {id:'nether', name:'نِدر', sky:['#3a0d12','#7a1f22'], ground:'#6e2a2a', dirt:'#3e1414',
+   plats:[{x:150,y:420,w:260,h:30,solid:true},{x:550,y:420,w:260,h:30,solid:true},{x:400,y:300,w:160,h:16},{x:230,y:200,w:120,h:16},{x:610,y:200,w:120,h:16}]},
+  {id:'sky', name:'جزیره آسمانی', sky:['#1d2b64','#f8cdda'], ground:'#8fd3f4', dirt:'#6b86b3',
+   plats:[{x:340,y:400,w:280,h:30,solid:true},{x:120,y:300,w:150,h:16},{x:690,y:300,w:150,h:16},{x:405,y:230,w:150,h:16}]},
+  {id:'cave', name:'غار الماس', sky:['#0b1020','#1e2a4a'], ground:'#4e5a78', dirt:'#2a3250',
+   plats:[{x:200,y:430,w:560,h:30,solid:true},{x:240,y:320,w:120,h:16},{x:600,y:320,w:120,h:16},{x:420,y:250,w:120,h:16},{x:330,y:150,w:300,h:16}]},
+];
+
+// پروفایل محلی (در نسخه‌ی اصلی: Supabase)
+const profile = JSON.parse(localStorage.getItem('bb_profile')||'{"xp":0,"wins":0,"games":0}');
+const levelOf = xp => Math.floor(Math.sqrt(xp/40))+1;
+const xpForLevel = l => (l-1)*(l-1)*40;
+function saveProfile(){ localStorage.setItem('bb_profile', JSON.stringify(profile)); }
+
+// ------------------------------------------------------------------
+// منو
+// ------------------------------------------------------------------
+const sel = {diff:2, char:0, map:0, mode:'cpu'};
+const $ = id => document.getElementById(id);
+
+function drawMiniChar(cv, c){
+  const g = cv.getContext('2d'); g.clearRect(0,0,cv.width,cv.height);
+  g.save(); g.scale(cv.width/24, cv.height/30);
+  g.fillStyle=c.head; g.fillRect(6,0,12,4);
+  g.fillStyle=c.skin; g.fillRect(6,4,12,8);
+  g.fillStyle=c.eye||'#222'; g.fillRect(8,7,2,2); g.fillRect(14,7,2,2);
+  g.fillStyle=c.body; g.fillRect(6,12,12,10);
+  g.fillStyle=c.skin; g.fillRect(2,12,4,10); g.fillRect(18,12,4,10);
+  g.fillStyle='#333'; g.fillRect(6,22,5,8); g.fillRect(13,22,5,8);
+  g.restore();
+}
+
+function buildMenu(){
+  const lvl = levelOf(profile.xp);
+  $('profile').innerHTML = `لول <b>${lvl}</b> &nbsp;|&nbsp; XP: <b>${profile.xp}</b> / ${xpForLevel(lvl+1)} &nbsp;|&nbsp; برد: <b>${profile.wins}</b> از ${profile.games} بازی`;
+
+  $('diffRow').innerHTML='';
+  DIFFS.forEach((d,i)=>{ const b=document.createElement('button'); b.textContent=d.name+(d.cheats?' ⚡':''); b.className=i===sel.diff?'sel':''; b.onclick=()=>{sel.diff=i;buildMenu();}; $('diffRow').appendChild(b); });
+
+  $('charRow').innerHTML='';
+  CHARS.forEach((c,i)=>{
+    const locked = lvl < c.unlock;
+    const b=document.createElement('button'); b.className='char '+(locked?'lock':(i===sel.char?'sel':''));
+    const cv=document.createElement('canvas'); cv.width=24; cv.height=30; drawMiniChar(cv, c);
+    b.appendChild(cv);
+    const n=document.createElement('span'); n.textContent=c.name; b.appendChild(n);
+    const s=document.createElement('small'); s.textContent=locked?`🔒 لول ${c.unlock}`:c.special; b.appendChild(s);
+    if(!locked) b.onclick=()=>{sel.char=i;buildMenu();};
+    $('charRow').appendChild(b);
+  });
+
+  $('mapRow').innerHTML='';
+  MAPS.forEach((m,i)=>{ const b=document.createElement('button'); b.textContent=m.name; b.className=i===sel.map?'sel':''; b.onclick=()=>{sel.map=i;buildMenu();}; $('mapRow').appendChild(b); });
+
+  $('modeRow').innerHTML='';
+  [['cpu','بازی با کامپیوتر'],['local','دونفره روی یک کیبورد'],['online','آنلاین ۱v۱ (در نسخه‌ی اصلی)']].forEach(([id,name])=>{
+    const b=document.createElement('button'); b.textContent=name; b.className=id===sel.mode?'sel':(id==='online'?'lock':''); if(id!=='online') b.onclick=()=>{sel.mode=id;buildMenu();}; $('modeRow').appendChild(b);
+  });
+}
+buildMenu();
+
+// ------------------------------------------------------------------
+// موتور بازی
+// ------------------------------------------------------------------
+const cv = $('game'), ctx = cv.getContext('2d');
+const W=960, H=540, GRAV=0.55, BLAST={l:-120, r:W+120, t:-200, b:H+120};
+const keys = {};
+addEventListener('keydown', e=>{ keys[e.code]=true; if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault(); });
+addEventListener('keyup',   e=>{ keys[e.code]=false; });
+
+const P1KEYS = {left:'ArrowLeft', right:'ArrowRight', jump:'ArrowUp', atk:'KeyZ', sp:'KeyX', dodge:'KeyC'};
+const P2KEYS = {left:'KeyA', right:'KeyD', jump:'KeyW', atk:'KeyJ', sp:'KeyK', dodge:'KeyL'};
+
+let state = null; // بازی فعال
+let particles = [];
+
+function makeFighter(c, x, facing, ctrl){
+  return {c, x, y:200, vx:0, vy:0, w:34, h:52, facing, ctrl,
+    dmg:0, stocks:3, onGround:false, jumps:2, hit:0, atkCd:0, spCd:0, dodge:0, dodgeCd:0,
+    stun:0, inv:0, respawn:0, prevJump:false, prevAtk:false, prevSp:false, prevDodge:false,
+    ai:null, flash:0, cheats:{}};
+}
+
+function startGame(){
+  const map = MAPS[sel.map];
+  const diff = DIFFS[sel.diff];
+  const p1 = makeFighter(CHARS[sel.char], 360, 1, P1KEYS);
+  const cpuChar = CHARS[(sel.char + 1 + Math.floor(Math.random()*(CHARS.length-1))) % CHARS.length];
+  const p2 = makeFighter(sel.mode==='cpu'?cpuChar:CHARS[(sel.char+1)%3], 600, -1, sel.mode==='cpu'?null:P2KEYS);
+  if(sel.mode==='cpu'){
+    p2.ai = {diff, think:0, dir:0, wantJump:false, wantAtk:false, wantSp:false, wantDodge:false};
+    if(diff.cheats){ // در سختی‌های بالا CPU «چیت» می‌زنه؛ بازیکن هم در نسخه اصلی می‌تونه
+      p2.cheats = {heavy:true, fastRecover:true};
+    }
+  }
+  // بازیکن از مولتی هارد به بعد یه چیت داره: دوبار پرش بیشتر
+  p1.cheats = diff.cheats ? {tripleJump:true} : {};
+  state = {map, diff, players:[p1,p2], t:0, over:false, shake:0};
+  particles=[];
+  $('menu').style.display='none'; $('over').style.display='none'; $('hud').style.display='flex';
+  requestAnimationFrame(loop);
+}
+
+function input(p){
+  if(p.ai) return aiInput(p);
+  const k=p.ctrl;
+  return {left:!!keys[k.left], right:!!keys[k.right], jump:!!keys[k.jump], atk:!!keys[k.atk], sp:!!keys[k.sp], dodge:!!keys[k.dodge]};
+}
+
+// --- هوش مصنوعی بر اساس درجه سختی ---
+function aiInput(p){
+  const a=p.ai, d=a.diff, foe=state.players[0];
+  a.think -= 1/60;
+  if(a.think<=0){
+    a.think = 0.08 + d.react*Math.random()*0.6;          // زمان واکنش
+    const dx = foe.x-p.x, dy = foe.y-p.y, dist=Math.hypot(dx,dy);
+    const onStage = p.x>200 && p.x<760;
+    a.wantJump=false; a.wantAtk=false; a.wantSp=false; a.wantDodge=false;
+    // اول: برگشت به صحنه
+    if(!onStage || p.y>430){
+      a.dir = p.x<480?1:-1; a.wantJump = true;
+      if(d.aggro>0.6 && p.c.special==='blink') a.wantSp=true;
+    } else if(Math.random() < d.miss){
+      a.dir = Math.random()<0.5?-1:1; // اشتباه تصادفی
+    } else {
+      const aggressive = Math.random() < d.aggro;
+      a.dir = aggressive ? Math.sign(dx) : (dist<90 ? -Math.sign(dx) : Math.sign(dx)*0.3);
+      if(dy < -40 && Math.random()<0.6) a.wantJump=true;
+      if(dist < 70 && aggressive) a.wantAtk = true;
+      if(dist < 160 && dist > 80 && Math.random() < d.aggro*0.5) a.wantSp = true;
+      if(foe.atkCd>0 && dist<80 && Math.random() < (1-d.miss)*0.7) a.wantDodge = true;
+    }
+  }
+  return {left:a.dir<0, right:a.dir>0, jump:a.wantJump && !p.prevJump, atk:a.wantAtk, sp:a.wantSp, dodge:a.wantDodge};
+}
+
+function spawnParticles(x,y,color,n,power){
+  for(let i=0;i<n;i++) particles.push({x,y,vx:(Math.random()-0.5)*power,vy:(Math.random()-0.8)*power,life:30+Math.random()*20,color});
+}
+
+function update(){
+  const {players, map} = state; state.t++;
+  if(state.shake>0) state.shake*=0.85;
+
+  players.forEach((p,idx)=>{
+    const foe = players[1-idx];
+    if(p.respawn>0){ p.respawn--; if(p.respawn===0){ p.x=480; p.y=60; p.vx=0; p.vy=0; p.dmg=0; p.inv=90; p.jumps=2;} return; }
+    const inp = input(p);
+    const maxJumps = p.cheats.tripleJump ? 3 : 2;
+    const spd = 4.6*p.c.spd * (p.ai? p.ai.diff.speed : 1);
+
+    // تایمرها
+    if(p.atkCd>0)p.atkCd--; if(p.spCd>0)p.spCd--; if(p.dodgeCd>0)p.dodgeCd--; if(p.inv>0)p.inv--; if(p.flash>0)p.flash--;
+    if(p.stun>0){ p.stun--; }
+    if(p.dodge>0){ p.dodge--; }
+
+    const canAct = p.stun<=0 && p.dodge<=0;
+
+    // حرکت
+    if(canAct){
+      if(inp.left){ p.vx -= 0.9; p.facing=-1; }
+      if(inp.right){ p.vx += 0.9; p.facing=1; }
+      p.vx = Math.max(-spd, Math.min(spd, p.vx));
+      if(!inp.left && !inp.right) p.vx *= p.onGround?0.7:0.92;
+      // پرش
+      if(inp.jump && !p.prevJump && p.jumps>0){ p.vy = -11.5; p.jumps--; p.onGround=false; spawnParticles(p.x,p.y+p.h/2,'#fff',6,3); }
+      // ضربه عادی
+      if(inp.atk && !p.prevAtk && p.atkCd===0){ p.atkCd=28; p.flash=10; doHit(p, foe, {range:60, power:1, angle:0.35}); }
+      // حرکت ویژه
+      if(inp.sp && !p.prevSp && p.spCd===0){ p.spCd=90; p.flash=14;
+        if(p.c.special==='dash'){ p.vx = p.facing*14; p.inv=8; doHit(p, foe, {range:85, power:1.3, angle:0.15}); }
+        else if(p.c.special==='slam'){ p.vy = p.onGround? -6 : 14; doHit(p, foe, {range:80, power:1.6, angle:1.1}); state.shake=6; }
+        else if(p.c.special==='blink'){ spawnParticles(p.x,p.y,p.c.eye||'#c04bff',12,6); p.x += p.facing*150; p.x=Math.max(60,Math.min(W-60,p.x)); p.inv=12; doHit(p, foe, {range:70, power:1.1, angle:0.5}); }
+      }
+      // جاخالی
+      if(inp.dodge && !p.prevDodge && p.dodgeCd===0){ p.dodge=18; p.dodgeCd=60; p.inv=18; }
+    } else {
+      p.vx *= 0.96;
+    }
+    p.prevJump=inp.jump; p.prevAtk=inp.atk; p.prevSp=inp.sp; p.prevDodge=inp.dodge;
+
+    // فیزیک
+    p.vy += GRAV * (p.c.wt);
+    if(p.vy>16) p.vy=16;
+    p.x += p.vx; p.y += p.vy;
+
+    // برخورد با پلتفرم‌ها (فقط از بالا)
+    p.onGround=false;
+    for(const pl of map.plats){
+      const feet = p.y+p.h/2;
+      if(p.vy>=0 && p.x+p.w/2>pl.x && p.x-p.w/2<pl.x+pl.w && feet>=pl.y && feet<=pl.y+Math.max(14,p.vy+2)){
+        p.y = pl.y - p.h/2; p.vy=0; p.onGround=true; p.jumps=maxJumps;
+        if(p.cheats.fastRecover) p.stun = Math.min(p.stun, 5);
+      }
+    }
+
+    // خارج از صحنه؟
+    if(p.x<BLAST.l || p.x>BLAST.r || p.y>BLAST.b || p.y<BLAST.t){
+      p.stocks--; spawnParticles(Math.max(0,Math.min(W,p.x)), Math.max(0,Math.min(H,p.y)), '#fff', 30, 10); state.shake=12;
+      if(p.stocks<=0){ endGame(1-idx); return; }
+      p.respawn=60; p.stun=0;
+    }
+  });
+
+  particles.forEach(q=>{q.x+=q.vx; q.y+=q.vy; q.vy+=0.2; q.life--;});
+  particles = particles.filter(q=>q.life>0);
+}
+
+function doHit(p, foe, o){
+  if(foe.respawn>0 || foe.inv>0) return;
+  const dx = foe.x - p.x, dy = foe.y - p.y;
+  if(Math.abs(dy) > 60) return;
+  if(Math.sign(dx) !== p.facing && Math.abs(dx) > 25) return;
+  if(Math.abs(dx) > o.range) return;
+  // ضربه گرفت!
+  const pow = o.power * p.c.pow * (p.cheats.heavy?1.25:1);
+  foe.dmg = Math.min(300, foe.dmg + Math.round(8*pow));
+  const kb = (3 + foe.dmg*0.09) * pow / foe.c.wt;
+  foe.vx = p.facing*Math.cos(o.angle)*kb;
+  foe.vy = -Math.sin(o.angle)*kb - 2;
+  foe.stun = Math.min(40, 8 + foe.dmg*0.12);
+  foe.inv = 10; foe.flash = 8;
+  spawnParticles(foe.x, foe.y, '#ffd84a', 10, 6);
+  state.shake = Math.min(10, 2 + kb*0.3);
+}
+
+function endGame(winnerIdx){
+  state.over=true;
+  const youWon = winnerIdx===0;
+  let xp = 5; let msg;
+  if(sel.mode==='cpu'){
+    xp = youWon ? state.diff.xp : Math.round(state.diff.xp*0.25);
+    msg = youWon ? 'بردی! 🎉' : 'باختی... دفعه بعد!';
+  } else {
+    msg = youWon ? 'بازیکن ۱ برد! 🎉' : 'بازیکن ۲ برد! 🎉';
+    xp = 15;
+  }
+  const before = levelOf(profile.xp);
+  profile.xp += xp; profile.games++; if(youWon||sel.mode==='local') profile.wins++;
+  saveProfile();
+  const after = levelOf(profile.xp);
+  $('overTitle').textContent = msg;
+  $('overXp').textContent = `+${xp} XP`;
+  const unlocked = CHARS.filter(c=>c.unlock>before && c.unlock<=after);
+  $('overUnlock').textContent = after>before ? `⬆ لول ${after}!` + (unlocked.length?`  🔓 کاراکتر جدید: ${unlocked.map(c=>c.name).join('، ')}`:'') : '';
+  $('over').style.display='flex';
+}
+
+// ------------------------------------------------------------------
+// رندر
+// ------------------------------------------------------------------
+function drawFighter(p, label){
+  if(p.respawn>0) return;
+  if(p.inv>0 && Math.floor(state.t/3)%2===0 && p.dodge<=0) ctx.globalAlpha=0.5;
+  if(p.dodge>0) ctx.globalAlpha=0.35;
+  const c=p.c, x=p.x, y=p.y, s=p.h/30; // مقیاس 24x30 بلوکی
+  ctx.save(); ctx.translate(x, y-p.h/2); ctx.scale(p.facing*s, s);
+  const squash = p.flash>0 ? 1.08 : 1;
+  ctx.scale(squash, 1/squash);
+  // مو/کلاه
+  ctx.fillStyle=c.head; ctx.fillRect(-6,0,12,4);
+  // سر
+  ctx.fillStyle=c.skin; ctx.fillRect(-6,4,12,8);
+  // چشم‌ها (رو به جلو)
+  ctx.fillStyle=c.eye||'#222'; ctx.fillRect(0,7,2,2); ctx.fillRect(4,7,2,2);
+  // بدن
+  ctx.fillStyle=c.body; ctx.fillRect(-6,12,12,10);
+  // دست‌ها (در حال ضربه، یکی جلو)
+  ctx.fillStyle=c.skin;
+  if(p.atkCd>18 || p.spCd>80){ ctx.fillRect(6,13,10,4); ctx.fillRect(-10,12,4,10);} else { ctx.fillRect(-10,12,4,10); ctx.fillRect(6,12,4,10);}
+  // پاها
+  ctx.fillStyle='#333'; const run = p.onGround && Math.abs(p.vx)>1 ? Math.sin(state.t*0.4)*2 : 0;
+  ctx.fillRect(-6+run,22,5,8); ctx.fillRect(1-run,22,5,8);
+  ctx.restore(); ctx.globalAlpha=1;
+  // برچسب
+  ctx.fillStyle='rgba(0,0,0,.5)'; ctx.fillRect(x-22, y-p.h/2-20, 44, 14);
+  ctx.fillStyle='#fff'; ctx.font='bold 10px sans-serif'; ctx.textAlign='center'; ctx.fillText(label, x, y-p.h/2-9);
+}
+
+function render(){
+  const {map, players} = state;
+  ctx.save();
+  if(state.shake>0.5) ctx.translate((Math.random()-0.5)*state.shake, (Math.random()-0.5)*state.shake);
+  // آسمان
+  const g = ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,map.sky[0]); g.addColorStop(1,map.sky[1]);
+  ctx.fillStyle=g; ctx.fillRect(-20,-20,W+40,H+40);
+  // ابرهای بلوکی
+  ctx.fillStyle='rgba(255,255,255,.35)';
+  for(let i=0;i<5;i++){ const cx=((state.t*0.2)+i*230)%(W+200)-100, cy=60+i*45%120; ctx.fillRect(cx,cy,70,14); ctx.fillRect(cx+15,cy-12,40,12); }
+  // پلتفرم‌ها
+  for(const pl of map.plats){
+    ctx.fillStyle=map.ground; ctx.fillRect(pl.x, pl.y, pl.w, pl.solid?10:pl.h);
+    if(pl.solid){ ctx.fillStyle=map.dirt; ctx.fillRect(pl.x, pl.y+10, pl.w, pl.h-10+60);
+      // بلوک‌های تزئینی
+      ctx.fillStyle='rgba(0,0,0,.15)'; for(let bx=pl.x; bx<pl.x+pl.w; bx+=30) ctx.fillRect(bx+2, pl.y+14, 26, 26); }
+  }
+  // ذرات
+  particles.forEach(q=>{ ctx.globalAlpha=Math.max(0,q.life/50); ctx.fillStyle=q.color; ctx.fillRect(q.x-3,q.y-3,6,6); });
+  ctx.globalAlpha=1;
+  // بازیکن‌ها
+  drawFighter(players[0], 'P1');
+  drawFighter(players[1], players[1].ai ? 'CPU' : 'P2');
+  // نشانگر خارج از صفحه
+  players.forEach((p,i)=>{ if(p.respawn===0 && (p.y<-10 || p.x<0 || p.x>W)){ const ax=Math.max(20,Math.min(W-20,p.x)), ay=Math.max(20,Math.min(H-20,p.y)); ctx.fillStyle=i===0?'#4af':'#f66'; ctx.beginPath(); ctx.arc(ax,ay,12,0,7); ctx.fill(); }});
+  ctx.restore();
+  // HUD
+  players.forEach((p,i)=>{
+    const col = p.dmg<50?'#7cff7c':p.dmg<100?'#ffd84a':p.dmg<150?'#ff9a3c':'#ff4d4d';
+    $(i===0?'hud1':'hud2').innerHTML = `<b>${i===0?'P1':(p.ai?'CPU — '+state.diff.name:'P2')} · ${p.c.name}</b><span class="dmg" style="color:${col}">${p.dmg}%</span> &nbsp; ${'❤'.repeat(Math.max(0,p.stocks))}${'🖤'.repeat(3-Math.max(0,p.stocks))}`;
+  });
+}
+
+function loop(){
+  if(!state) return;
+  if(!state.over) update();
+  render();
+  if(!state.over) requestAnimationFrame(loop);
+}
+
+$('play').onclick = startGame;
+$('again').onclick = ()=>{ state=null; $('over').style.display='none'; $('hud').style.display='none'; $('menu').style.display='flex'; buildMenu(); };
+
+// صفحه‌ی خالی اولیه
+(function idle(){ const g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#1d2b64'); g.addColorStop(1,'#f8cdda'); ctx.fillStyle=g; ctx.fillRect(0,0,W,H); })();
+</script>
+</body>
+</html>
